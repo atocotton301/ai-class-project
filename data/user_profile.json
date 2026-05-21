@@ -1,0 +1,21 @@
+{
+    "name": "조선기",
+    "student_id": "2293087",
+    "email": "03sunki@gmail.com",
+    "major": "사회과학부 (경영/행정/무역 등)",
+    "certifications": [
+        "공인노무사",
+        "전산세무회계",
+        "컴퓨터활용능력 1급",
+        "OPIc/영어말하기"
+    ],
+    "current_points": 500,
+    "target_points": 380,
+    "recognized_points": 200,
+    "carryover_points": 180,
+    "expired_points": 0,
+    "expected_total_points": 700,
+    "categories": [
+        "창의융합역량 프로그램 (IT 기초, 전공 융합, 기술 트렌드 등)"
+    ]
+}
