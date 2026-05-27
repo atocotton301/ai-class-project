@@ -1,34 +1,23 @@
 {
-<<<<<<< HEAD
-    "name": "김한성",
+    "name": "03sunki@gmail.com",
     "student_id": "2293087",
-    "email": "03sunki@gmail.com",
-    "major": "기계전자공학부",
+    "email": "ato.cotton301@gmail.com",
+    "major": "사회과학부 (경영/행정/무역 등)",
     "certifications": [
-        "기계설계기사",
-        "전자기사",
-        "한국사능력검정시험"
+        "매경TEST",
+        "공인노무사",
+        "전산세무회계",
+        "TOEIC (비교과 10pt)"
     ],
-    "current_points": 600,
-    "target_points": 425,
+    "current_points": 650,
+    "target_points": 440,
     "recognized_points": 200,
     "carryover_points": 200,
-    "expired_points": 25,
-    "expected_total_points": 800,
-=======
-    "name": "김김김",
-    "student_id": "2020202",
-    "email": "kk2k@gmail.com",
-    "major": "AI응용학과",
-    "certifications": [],
-    "current_points": 100,
-    "target_points": 150,
-    "recognized_points": 150,
-    "carryover_points": 0,
-    "expired_points": 0,
-    "expected_total_points": 250,
->>>>>>> f9a0f5203a1f5869ba44855540e182138363dde3
+    "expired_points": 40,
+    "expected_total_points": 850,
     "categories": [
-        "취·창업 지원 프로그램 (포트폴리오, 면접 컨설팅, 창업 동아리)"
+        "창의융합역량 프로그램 (IT 기초, 전공 융합, 기술 트렌드 등)",
+        "자기주도역량 프로그램 (리더십, 자아탐색, 학습법 등)",
+        "글로벌역량 프로그램 (어학, 교환학생, 다문화 이해 등)"
     ]
 }
