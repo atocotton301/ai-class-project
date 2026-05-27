@@ -1,15 +1,15 @@
 {
     "name": "김김김",
     "student_id": "2020202",
-    "email": "kkrr@gmail.com",
+    "email": "kk2k@gmail.com",
     "major": "AI응용학과",
     "certifications": [],
-    "current_points": 0,
+    "current_points": 100,
     "target_points": 150,
     "recognized_points": 150,
     "carryover_points": 0,
     "expired_points": 0,
-    "expected_total_points": 150,
+    "expected_total_points": 250,
     "categories": [
         "창의융합역량 프로그램 (IT 기초, 전공 융합, 기술 트렌드 등)"
     ]
