@@ -9,6 +9,9 @@ if 'is_logged_in' not in st.session_state or not st.session_state.is_logged_in:
     st.warning("⚠️ 메인 화면(온보딩)에서 먼저 프로필을 설정해 주세요!")
     st.stop()
 
+if 'my_schedule' not in st.session_state:
+    st.session_state.my_schedule = []
+
 user_profile = st.session_state.user_profile
 user_name = user_profile.get("name", "학생")
 st.write(f"**{user_name}**님, 원하는 분야만 쏙쏙 골라 일정을 확인하세요. (👇 **일정이나 [+ 더보기]를 클릭해 보세요!**)")
@@ -169,5 +172,22 @@ if cal_result.get("eventClick"):
         c3.metric("📅 시작일", event_data['start'][:10]) 
         
         st.markdown(" ")
-        if st.button("⭐ 내 시간표에 담기 (즐겨찾기)", use_container_width=True):
-            st.success(f"🎉 '{event_data['title']}'이(가) 내 목표 시간표에 성공적으로 담겼습니다!")
+if st.button("⭐ 내 시간표에 담기 (즐겨찾기)", use_container_width=True):
+            # 현재 선택한 프로그램의 이름
+            selected_title = event_data['title']
+            
+            # 이미 보관함에 있는 프로그램인지 이름으로 확인
+            already_saved = any(item['title'] == selected_title for item in st.session_state.my_schedule)
+            
+            if already_saved:
+                st.warning("이미 시간표에 담겨있는 프로그램입니다! 😅")
+            else:
+                # 보관함에 없다면 필요한 정보들을 딕셔너리로 묶어서 저장
+                st.session_state.my_schedule.append({
+                    "title": selected_title,
+                    "category": props['category'],
+                    "points": props['points'],
+                    "duration": props['duration'],
+                    "start": event_data['start']
+                })
+                st.success(f"🎉 '{selected_title}'이(가) 내 목표 시간표에 성공적으로 담겼습니다!")
