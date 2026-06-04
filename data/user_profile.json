@@ -1,20 +1,17 @@
 {
-    "name": "김한성",
-    "student_id": "2222222",
-    "email": "hansung@gmail.com",
+    "name": "김진오",
+    "student_id": "2020202",
+    "email": "wowo@gmail.com",
     "major": "AI응용학과",
-    "certifications": [
-        "AWS Certified Cloud Practitioner",
-        "OPIc/영어말하기"
-    ],
-    "current_points": 600,
+    "certifications": [],
+    "current_points": 500,
     "target_points": 150,
     "recognized_points": 150,
     "carryover_points": 0,
     "expired_points": 0,
-    "expected_total_points": 750,
+    "expected_total_points": 650,
     "categories": [
-        "글로벌역량 프로그램 (어학, 교환학생, 다문화 이해 등)"
+        "창의융합역량 프로그램 (IT 기초, 전공 융합, 기술 트렌드 등)"
     ],
     "timetable": [
         {
@@ -28,6 +25,12 @@
             "과목명": "데이터베이스이론",
             "시작시간": "13:00",
             "종료시간": "14:30"
+        },
+        {
+            "요일": "화",
+            "과목명": "딥러닝",
+            "시작시간": "15:00",
+            "종료시간": "16:30"
         }
     ]
 }
