@@ -18,31 +18,98 @@ if 'my_schedule' not in st.session_state:
 user_profile = st.session_state.user_profile
 user_name = user_profile.get("name", "학생")
 st.write(f"**{user_name}**님, 원하는 분야만 쏙쏙 골라 일정을 확인하세요. (👇 **일정을 클릭해서 담아보세요!**)")
+st.caption("💡 원활한 이용을 위해 최신 데이터는 1시간마다 최초 1회만 스크랩해옵니다. (접속/계정 변경 시 즉시 로딩)")
 st.markdown("---")
 
-# 2. 더미 데이터 세팅
-mock_data = {
-    "프로그램명": [
-        "파이썬 기초 특강", "도서관 근로 장학생", "AI 해커톤", "글로벌 멘토링", "취업 면접 컨설팅", 
-        "상상부기 피어코칭", "인공지능 트렌드 세미나", "기초 코딩 역량 강화"
-    ],
-    "분야": ["창의융합", "사회봉사", "창의융합", "글로벌", "취업/창업", "학습법", "창의융합", "학습법"],
-    "카테고리": [
-        "창의융합역량 프로그램 (IT 기초, 전공 융합, 기술 트렌드 등)", 
-        "사회봉사 및 인성 함양 (교내외 봉사활동, 멘토링 프로그램)", 
-        "창의융합역량 프로그램 (IT 기초, 전공 융합, 기술 트렌드 등)", 
-        "글로벌역량 프로그램 (어학, 교환학생, 다문화 이해 등)",
-        "취·창업 지원 프로그램 (포트폴리오, 면접 컨설팅, 창업 동아리)",
-        "학습인프라/학습법 강화 (학습 튜터링, 상상부기 피어코칭)",
-        "창의융합역량 프로그램 (IT 기초, 전공 융합, 기술 트렌드 등)",
-        "학습인프라/학습법 강화 (학습 튜터링, 상상부기 피어코칭)"
-    ],
-    "시작일시": ["2026-06-08T14:00:00", "2026-06-09T09:00:00", "2026-06-12T10:00:00", "2026-06-16T18:00:00", "2026-06-18T15:00:00", "2026-06-19T13:00:00", "2026-06-09T13:00:00", "2026-06-09T15:00:00"],
-    "종료일시": ["2026-06-08T16:00:00", "2026-06-09T12:00:00", "2026-06-13T18:00:00", "2026-06-16T20:00:00", "2026-06-18T17:00:00", "2026-06-19T15:00:00", "2026-06-09T15:00:00", "2026-06-09T17:00:00"],
-    "포인트": [30, 100, 200, 150, 50, 80, 40, 60],
-    "소요시간(시간)": [10, 50, 48, 30, 5, 20, 4, 12],
-    "색상": ["#FFB3B3", "#B3D9FF", "#FFB3B3", "#B3E6CC", "#FFD9B3", "#D9B3FF", "#FFB3B3", "#D9B3FF"] 
-}
+# 2. 실데이터 크롤링 함수 (기존 더미데이터 구조와 호환되게)
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_calendar_data():
+    import requests
+    from bs4 import BeautifulSoup
+    import re
+    
+    programs_dict = {
+        "프로그램명": [],
+        "분야": [],
+        "카테고리": [],
+        "시작일시": [],
+        "종료일시": [],
+        "포인트": [],
+        "소요시간(시간)": [],
+        "색상": []
+    }
+    
+    colors = ["#FFB3B3", "#B3D9FF", "#B3E6CC", "#FFD9B3", "#D9B3FF"]
+    headers = {'User-Agent': 'Mozilla/5.0'}
+    
+    try:
+        page = 1
+        while page <= 10:  # 최대 10페이지까지만 탐색 (안전장치)
+            url = f"https://hsportal.hansung.ac.kr/ko/program/all/list/all/1/{page}"
+            res = requests.get(url, headers=headers, timeout=10)
+            soup = BeautifulSoup(res.text, 'html.parser')
+            
+            # 실제 프로그램 아이템 목록 추출
+            items = soup.select('div[data-module="eco"][data-role="item"]')
+            
+            # 더 이상 프로그램이 없으면(마지막 페이지를 넘어가면) 루프 종료
+            if not items:
+                break
+                
+            for item in items:
+                title_elem = item.find(class_='title')
+                if not title_elem:
+                    continue
+                title = title_elem.get_text(strip=True)
+                
+                inst_elem = item.find(class_='institution')
+                institution = inst_elem.get_text(strip=True) if inst_elem else "일반"
+                
+                # 포인트 파싱 (D-Day 숫자와 혼동되지 않도록 <i class="point"> 요소 찾기)
+                points = 0
+                point_elem = item.find('i', class_='point')
+                if point_elem and point_elem.next_sibling:
+                    match = re.search(r'(\d+)', str(point_elem.next_sibling))
+                    if match:
+                        points = int(match.group(1))
+                        
+                # 일정(운영기간) 파싱
+                date_layers = item.find_all(class_='date_layer')
+                start_dt, end_dt = None, None
+                for dl in date_layers:
+                    if '운영:' in dl.get_text():
+                        times = dl.find_all('time')
+                        if len(times) >= 2:
+                            start_dt = times[0].get('datetime')[:19]  # "2026-06-18T09:00:00"
+                            end_dt = times[1].get('datetime')[:19]
+                        elif len(times) == 1:
+                            start_dt = end_dt = times[0].get('datetime')[:19]
+                
+                if not start_dt:
+                    continue
+                
+                color = colors[len(programs_dict["프로그램명"]) % len(colors)]
+                
+                programs_dict["프로그램명"].append(title)
+                programs_dict["분야"].append(institution.split()[0] if institution else "기타")
+                programs_dict["카테고리"].append(institution)
+                programs_dict["시작일시"].append(start_dt)
+                programs_dict["종료일시"].append(end_dt)
+                programs_dict["포인트"].append(points)
+                programs_dict["소요시간(시간)"].append(2) # 임의의 소요시간
+                programs_dict["색상"].append(color)
+                
+            page += 1
+            
+    except Exception as e:
+        st.error(f"데이터를 불러오는데 실패했습니다: {e}")
+        pass
+        
+    return programs_dict
+
+with st.spinner("🚀 학교 서버에서 프로그램들을 가져오고 있어요! 🧚‍♀️✨"):
+    mock_data = fetch_calendar_data()
+
 df = pd.DataFrame(mock_data)
 
 # 3. 🖥️ 화면 7:3 비율 분할 (왼쪽: 달력 영역, 오른쪽: 보관함 영역)
