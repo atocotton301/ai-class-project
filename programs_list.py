@@ -52,28 +52,27 @@ if "filter_mode" not in st.session_state:
 # ==========================================
 # 한성대 포털에서 프로그램 데이터 가져오기
 # ==========================================
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=3600, show_spinner=False)
 def fetch_programs():
     """한성대 포털에서 비교과 프로그램 정보를 크롤링합니다."""
-    base_urls = [
-        "https://hsportal.hansung.ac.kr/ko/program/all/list/0/1",
-        "https://hsportal.hansung.ac.kr/ko/program/all/list/0/2",
-        "https://hsportal.hansung.ac.kr/ko/program/all/list/0/3",
-        "https://hsportal.hansung.ac.kr/ko/program/all/list/0/4"
-    ]
-    
     programs = []
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     }
     
-    for page_url in base_urls:
+    page = 1
+    while page <= 10:  # 최대 10페이지까지만 탐색 (안전장치)
         try:
+            page_url = f"https://hsportal.hansung.ac.kr/ko/program/all/list/all/1/{page}"
             response = requests.get(page_url, headers=headers, timeout=10)
             response.encoding = 'utf-8'
             soup = BeautifulSoup(response.text, "html.parser")
             items = soup.select('div[data-module="eco"][data-role="item"]')
             
+            # 더 이상 프로그램이 없으면 종료
+            if not items:
+                break
+                
             for item in items:
                 try:
                     title_elem = item.select_one('.title_wrap .title')
@@ -86,7 +85,6 @@ def fetch_programs():
                     hits = hits_elem.text.strip() if hits_elem else "0"
                     
                     label_elem = item.select_one('label')
-                    raw_points = label_elem.text.strip() if label_elem else ""
                     
                     dates = item.select('small.date_layer')
                     apply_period = dates[0].get_text(" ", strip=True) if len(dates) > 0 else ""
@@ -100,15 +98,19 @@ def fetch_programs():
                     
                     certified = "인재인증" if item.select_one('.certified') else "미인증"
                     
+                    # D-Day 및 포인트 추출 보완
                     d_day = ""
-                    points = raw_points
-                    if "D-" in raw_points:
-                        parts = raw_points.split()
-                        for p in parts:
-                            if p.startswith("D-"):
-                                d_day = p
-                            elif p.startswith("p") or "pt" in p:
-                                points = p
+                    if label_elem:
+                        d_day_elem = label_elem.select_one('b.lh_38')
+                        if d_day_elem and "D-" in d_day_elem.text:
+                            d_day = d_day_elem.text.strip()
+                            
+                    points = "0"
+                    point_elem = item.select_one('i.point')
+                    if point_elem and point_elem.next_sibling:
+                        pt_text = str(point_elem.next_sibling).strip()
+                        if pt_text:
+                            points = pt_text + " pt"
                     
                     if d_day:
                         apply_period = f"{apply_period} ({d_day})"
@@ -130,8 +132,12 @@ def fetch_programs():
                 
                 except Exception:
                     continue
-        
+            
+            page += 1
+            
         except Exception:
+            # 에러 발생시 다음 페이지로 넘어가거나 종료
+            page += 1
             continue
     
     return programs
@@ -154,7 +160,7 @@ st.title("📋 비교과 프로그램")
 st.markdown("한성대학교 비교과 포인트 프로그램 목록")
 
 # 데이터 로드
-with st.spinner("📥 프로그램 정보를 불러오는 중..."):
+with st.spinner("🚀 최초 1회만 학교 서버에서 프로그램들을 가져오고 있어요! (이후엔 캐시로 바로 뜹니다) 🧚‍♀️✨"):
     programs = fetch_programs()
 
 if not programs:
@@ -266,5 +272,5 @@ st.markdown("---")
 
 # 하단 정보
 st.caption("💡 각 프로그램의 별(☆) 아이콘을 클릭하여 즐겨찾기에 추가하세요")
-st.caption("🔄 정보는 매시간 자동 업데이트됩니다")
+st.caption("🔄 원활한 이용을 위해 최신 데이터는 1시간마다 최초 접속 시 1회만 스크랩해옵니다.")
 st.caption("📌 출처: 한성대학교 비교과 포인트 시스템")
