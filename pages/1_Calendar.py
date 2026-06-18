@@ -13,7 +13,16 @@ if 'is_logged_in' not in st.session_state or not st.session_state.is_logged_in:
 
 # 보관함(즐겨찾기) 세션 초기화
 if 'my_schedule' not in st.session_state:
-    st.session_state.my_schedule = []
+    st.session_state.my_schedule = st.session_state.user_profile.get('my_schedule', [])
+
+import json
+import os
+def save_profile():
+    st.session_state.user_profile['my_schedule'] = st.session_state.my_schedule
+    path = f"data/{st.session_state.login_id}_profile.json"
+    os.makedirs("data", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(st.session_state.user_profile, f, ensure_ascii=False, indent=4)
 
 user_profile = st.session_state.user_profile
 user_name = user_profile.get("name", "학생")
@@ -205,8 +214,10 @@ with col_cal:
                         "category": props['category'],
                         "points": props['points'],
                         "duration": props['duration'],
-                        "start": event_data['start'][:10] # 날짜만 잘라서 저장
+                        "start": event_data['start'][:10], # 날짜만 잘라서 저장
+                        "is_completed": False
                     })
+                    save_profile()
                     st.success(f"🎉 담기 완료!")
                     st.rerun() # 추가 후 즉시 화면을 새로고침하여 우측 탭에 반영
 
@@ -232,6 +243,7 @@ with col_book:
                     # 삭제 버튼
                     if st.button("❌ 빼기", key=f"del_{idx}", use_container_width=True):
                         st.session_state.my_schedule.pop(idx)
+                        save_profile()
                         st.rerun()
             
             st.markdown("---")
