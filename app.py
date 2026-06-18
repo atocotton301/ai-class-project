@@ -5,8 +5,10 @@ import json
 import os
 
 USERS_DB_PATH = "data/users_db.json"
-PROFILE_DB_PATH = "data/user_profile.json"
 GRADUATION_POINTS = 800
+
+def get_profile_path(user_id):
+    return f"data/{user_id}_profile.json"
 
 def load_users():
     if os.path.exists(USERS_DB_PATH):
@@ -21,9 +23,10 @@ def save_user(user_id, password):
     with open(USERS_DB_PATH, "w", encoding="utf-8") as f:
         json.dump(users, f, ensure_ascii=False, indent=4)
         
-def load_profile_from_file():
-    if os.path.exists(PROFILE_DB_PATH):
-        with open(PROFILE_DB_PATH, "r", encoding="utf-8") as f:
+def load_profile_from_file(user_id):
+    path = get_profile_path(user_id)
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
 
@@ -92,8 +95,9 @@ if st.session_state.app_step == 'login_signup':
                 if not login_id or not login_pw:
                     st.error("⚠️ 아이디와 비밀번호를 모두 입력해 주세요.")
                 elif login_id in users_db and users_db[login_id] == login_pw:
+                    st.session_state.login_id = login_id
                     st.session_state.is_logged_in = True
-                    saved_profile = load_profile_from_file()
+                    saved_profile = load_profile_from_file(login_id)
                     if saved_profile:
                         st.session_state.user_profile = saved_profile
                     st.session_state.app_step = 'main'
@@ -116,6 +120,7 @@ if st.session_state.app_step == 'login_signup':
                     st.error("⚠️ 이미 존재하는 아이디입니다. 다른 아이디를 입력해 주세요.")
                 else:
                     save_user(new_id, new_pw)
+                    st.session_state.login_id = new_id
                     st.session_state.app_step = 'onboarding'
                     st.rerun()
 
@@ -276,7 +281,7 @@ elif st.session_state.app_step == 'onboarding':
             st.session_state.app_step = 'main'
             
             os.makedirs("data", exist_ok=True)
-            with open(PROFILE_DB_PATH, "w", encoding="utf-8") as f:
+            with open(get_profile_path(st.session_state.login_id), "w", encoding="utf-8") as f:
                 json.dump(st.session_state.user_profile, f, ensure_ascii=False, indent=4)
             
             st.success(f"🎉 {user_name}님의 프로필 설정이 완료되었습니다!")
@@ -301,5 +306,6 @@ elif st.session_state.app_step == 'main':
         st.session_state.app_step = 'login_signup'
         st.session_state.is_logged_in = False
         st.session_state.user_profile = {}
+        st.session_state.pop('login_id', None)
         st.session_state.auth_mode = 'landing'
         st.rerun()

@@ -113,8 +113,11 @@ st.title("🚀 나의 대시보드")
 st.write("나의 성취도와 이번 주 융합 시간표를 한눈에 확인하세요!")
 
 def load_profile():
-    if os.path.exists("data/user_profile.json"):
-        with open("data/user_profile.json", "r", encoding="utf-8") as f:
+    if 'login_id' not in st.session_state:
+        return {}
+    path = f"data/{st.session_state.login_id}_profile.json"
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
 
@@ -124,8 +127,18 @@ if not profile:
     st.warning("⚠️ 메인 화면에서 온보딩을 먼저 완료해 주세요.")
     st.stop()
 
-my_schedule = st.session_state.get('my_schedule', [])
+if 'my_schedule' not in st.session_state:
+    st.session_state.my_schedule = profile.get('my_schedule', [])
+my_schedule = st.session_state.my_schedule
 current_timetable = profile.get("timetable", [])
+
+def save_profile():
+    profile['my_schedule'] = st.session_state.my_schedule
+    st.session_state.user_profile = profile
+    path = f"data/{st.session_state.login_id}_profile.json"
+    os.makedirs("data", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(profile, f, ensure_ascii=False, indent=4)
 
 # =========================================================
 # 🔔 1. 스마트 푸시 알림 시스템 (백그라운드 처리 및 Toast 팝업)
@@ -150,20 +163,31 @@ st.markdown("### 🏆 이번 학기 목표 달성 시뮬레이터")
 curr_pts = int(profile.get('current_points', 0))
 target_pts = int(profile.get('target_points', 150)) 
 
-expected_extra_pts = sum(int(ex.get('points', 0)) for ex in my_schedule)
-expected_total_pts = curr_pts + expected_extra_pts
+# 실제 취득 포인트 기반 계산
+raw_actual_extra = sum(int(ex.get('points', 0)) for ex in my_schedule if ex.get('is_completed', False))
+actual_recognized_pts = min(raw_actual_extra, 200)
+actual_carryover_pts = min(max(raw_actual_extra - 200, 0), 200)
+actual_expired_pts = max(raw_actual_extra - 400, 0)
+actual_total_pts = curr_pts + actual_recognized_pts
 
-current_rate = int((curr_pts / target_pts) * 100) if target_pts else 0
-expected_rate = int((expected_total_pts / target_pts) * 100) if target_pts else 0
+# 예상 포인트 기반 계산
+raw_expected_extra = sum(int(ex.get('points', 0)) for ex in my_schedule)
+expected_recognized_pts = min(raw_expected_extra, 200)
+expected_total_pts = curr_pts + expected_recognized_pts
 
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("현재 확정 포인트", f"{curr_pts} pt")
-col2.metric("목표 포인트", f"{target_pts} pt")
-col3.metric("최종 예상 포인트", f"{expected_total_pts} pt", delta=f"+{expected_extra_pts} pt")
-col4.metric("최종 예상 달성률", f"{expected_rate} %", delta=f"+{expected_rate - current_rate} %")
+col1.metric("시작 포인트", f"{curr_pts} pt", help="이전 학기까지 누적된 포인트입니다.")
+col2.metric("이번 학기 인정 포인트", f"{actual_recognized_pts} pt", delta=f"실제 취득: {raw_actual_extra} pt", delta_color="off", help="이번 학기에 취득한 포인트 중 최대 200pt까지만 인정됩니다.")
 
-st.progress(min(curr_pts / target_pts if target_pts else 0, 1.0), text="현재 달성도")
-st.progress(min(expected_total_pts / target_pts if target_pts else 0, 1.0), text="즐겨찾기 완료 시 예상 달성도")
+if actual_expired_pts > 0:
+    col3.metric("다음 학기 이월 포인트", f"{actual_carryover_pts} pt", delta=f"⚠️ {actual_expired_pts}pt 초과 소멸", delta_color="inverse", help="200pt를 초과한 부분은 최대 200pt까지 다음 학기로 이월됩니다.")
+else:
+    col3.metric("다음 학기 이월 포인트", f"{actual_carryover_pts} pt", delta=f"예상 이월: {min(max(raw_expected_extra - 200, 0), 200)} pt", delta_color="normal", help="200pt를 초과한 부분은 최대 200pt까지 다음 학기로 이월됩니다.")
+
+col4.metric("졸업인정 누적 포인트", f"{actual_total_pts} pt", help="시작 포인트와 이번 학기 인정 포인트를 합산한 최종 누적 포인트입니다.")
+
+st.progress(min(actual_total_pts / target_pts if target_pts else 0, 1.0), text="현재 실제 목표 달성도")
+st.progress(min(expected_total_pts / target_pts if target_pts else 0, 1.0), text="즐겨찾기 100% 완료 시 예상 목표 달성도")
 st.markdown("---")
 
 # =========================================================
@@ -203,8 +227,17 @@ if my_schedule:
                     st.markdown("<div style='text-align: center; color: #2E7D32; font-size: 0.9em; padding-top: 10px;'>✅ 시간표 고정됨</div>", unsafe_allow_html=True)
             
             with c_action2:
-                if st.button("❌ 전체 취소", key=f"del_{i}", use_container_width=True):
+                if not ex.get('is_completed', False):
+                    if st.button("✅ 취득완료", key=f"comp_{i}", use_container_width=True):
+                        ex['is_completed'] = True
+                        save_profile()
+                        st.rerun()
+                else:
+                    st.markdown("<div style='text-align: center; color: #1565C0; font-size: 0.9em; padding-top: 10px; font-weight: bold;'>🎉 취득 완료됨</div>", unsafe_allow_html=True)
+                    
+                if st.button("❌ 빼기", key=f"del_{i}", use_container_width=True):
                     st.session_state.my_schedule.pop(i)
+                    save_profile()
                     st.rerun()
 else:
     st.info("보관함이 비어 있습니다. 캘린더에서 관심 있는 프로그램을 즐겨찾기 해보세요!")

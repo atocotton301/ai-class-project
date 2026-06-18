@@ -15,7 +15,11 @@ st.subheader("🎯 AI 기반 맞춤형 비교과 프로그램 추천")
 # ==========================================
 # 1. 사용자 프로필 불러오기
 # ==========================================
-PROFILE_DB_PATH = "data/user_profile.json"
+if 'login_id' not in st.session_state:
+    st.warning("⚠️ 메인 화면(앱)에서 로그인 또는 온보딩을 먼저 완료해 주세요.")
+    st.stop()
+
+PROFILE_DB_PATH = f"data/{st.session_state.login_id}_profile.json"
 
 try:
     with open(PROFILE_DB_PATH, "r", encoding="utf-8") as f:

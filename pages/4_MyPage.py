@@ -53,7 +53,7 @@ def add_class_popup(profile):
             profile["timetable"] = current_timetable
             
             os.makedirs("data", exist_ok=True)
-            with open("data/user_profile.json", "w", encoding="utf-8") as f:
+            with open(f"data/{st.session_state.login_id}_profile.json", "w", encoding="utf-8") as f:
                 json.dump(profile, f, ensure_ascii=False, indent=4)
             st.session_state.user_profile = profile
             
@@ -109,12 +109,71 @@ def edit_class_popup(profile, idx, current_data):
                 "종료시간": new_end
             }
             os.makedirs("data", exist_ok=True)
-            with open("data/user_profile.json", "w", encoding="utf-8") as f:
+            with open(f"data/{st.session_state.login_id}_profile.json", "w", encoding="utf-8") as f:
                 json.dump(profile, f, ensure_ascii=False, indent=4)
             st.session_state.user_profile = profile
             
             st.success("수업이 수정되었습니다!")
             st.rerun()
+
+@st.dialog("🔄 학기 마감 및 포인트 갱신")
+def end_term_dialog(profile):
+    st.markdown("현재 학기를 마감하고 획득한 포인트를 다음 학기로 이월하시겠습니까?")
+    st.info("보관함(즐겨찾기 및 취득완료 내역)이 초기화되며, 실제 취득한 포인트가 누적 시작 포인트로 갱신됩니다.")
+    if st.button("확인 및 이월하기", type="primary", use_container_width=True):
+        curr_pts = int(profile.get('current_points', 0))
+        my_schedule = profile.get('my_schedule', [])
+        raw_actual_extra = sum(int(ex.get('points', 0)) for ex in my_schedule if ex.get('is_completed', False))
+        
+        actual_recognized_pts = min(raw_actual_extra, 200)
+        actual_carryover_pts = min(max(raw_actual_extra - 200, 0), 200)
+        
+        # 누적 시작 포인트 갱신
+        profile['current_points'] = curr_pts + actual_recognized_pts
+        
+        # 다음 학기를 위해 보관함 초기화 및 이월 포인트 부여
+        if actual_carryover_pts > 0:
+            profile['my_schedule'] = [{
+                "title": "지난 학기 이월 포인트",
+                "points": actual_carryover_pts,
+                "is_completed": True,
+                "duration": 0,
+                "category": "시스템 자동 이월",
+                "start": "학기 시작"
+            }]
+        else:
+            profile['my_schedule'] = []
+        
+        with open(f"data/{st.session_state.login_id}_profile.json", "w", encoding="utf-8") as f:
+            json.dump(profile, f, ensure_ascii=False, indent=4)
+            
+        st.session_state.user_profile = profile
+        st.session_state.my_schedule = []
+        st.success("새 학기 포인트로 갱신되었습니다!")
+        st.rerun()
+
+@st.dialog("🚨 회원 탈퇴")
+def delete_account_dialog(profile):
+    st.markdown("정말 탈퇴하시겠습니까?")
+    st.error("탈퇴 시 계정 정보, 프로필, 비교과 보관함, 포인트 기록이 **모두 삭제**됩니다. (단, 익명 리뷰는 유지됩니다)")
+    if st.button("최종 확인 (탈퇴하기)", type="primary", use_container_width=True):
+        login_id = st.session_state.login_id
+        
+        users_db_path = "data/users_db.json"
+        if os.path.exists(users_db_path):
+            with open(users_db_path, "r", encoding="utf-8") as f:
+                users = json.load(f)
+            if login_id in users:
+                del users[login_id]
+                with open(users_db_path, "w", encoding="utf-8") as f:
+                    json.dump(users, f, ensure_ascii=False, indent=4)
+                    
+        profile_path = f"data/{login_id}_profile.json"
+        if os.path.exists(profile_path):
+            os.remove(profile_path)
+            
+        st.session_state.clear()
+        st.rerun()
 
 # =========================================================
 # 메인 페이지 로직 시작
@@ -125,7 +184,7 @@ if 'is_logged_in' not in st.session_state or not st.session_state.is_logged_in:
     st.warning("⚠️ 메인 화면에서 온보딩을 먼저 완료해 주세요.")
     st.stop()
 
-DATA_PATH = "data/user_profile.json"
+DATA_PATH = f"data/{st.session_state.login_id}_profile.json"
 
 def load_profile():
     if os.path.exists(DATA_PATH):
@@ -182,6 +241,16 @@ if profile:
             if st.button("프로필 수정하기", use_container_width=True):
                 st.session_state.edit_mode = True
                 st.rerun()
+                
+            st.markdown("---")
+            st.write("### ⚙️ 계정 및 학기 관리")
+            col_action1, col_action2 = st.columns(2)
+            with col_action1:
+                if st.button("🔄 학기 마감 (포인트 이월)", use_container_width=True):
+                    end_term_dialog(profile)
+            with col_action2:
+                if st.button("🚨 회원 탈퇴", use_container_width=True):
+                    delete_account_dialog(profile)
                 
         else:
             st.markdown("### 📝 프로필 수정하기")

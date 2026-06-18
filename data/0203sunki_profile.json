@@ -1,0 +1,35 @@
+{
+    "name": "김한성",
+    "student_id": "2222222",
+    "email": "03sunki@gmail.com",
+    "major": "AI응용학과",
+    "certifications": [
+        "정보처리기사",
+        "SQLD",
+        "OPIc/영어말하기"
+    ],
+    "current_points": 460,
+    "target_points": 175,
+    "recognized_points": 175,
+    "carryover_points": 0,
+    "expired_points": 0,
+    "expected_total_points": 635,
+    "categories": [
+        "글로벌역량 프로그램 (어학, 교환학생, 다문화 이해 등)",
+        "창의융합역량 프로그램 (IT 기초, 전공 융합, 기술 트렌드 등)"
+    ],
+    "timetable": [
+        {
+            "요일": "월",
+            "과목명": "인공지능개론",
+            "시작시간": "10:00",
+            "종료시간": "11:30"
+        },
+        {
+            "요일": "수",
+            "과목명": "데이터베이스이론",
+            "시작시간": "13:00",
+            "종료시간": "14:30"
+        }
+    ]
+}
