@@ -214,7 +214,7 @@ with col_cal:
                         "category": props['category'],
                         "points": props['points'],
                         "duration": props['duration'],
-                        "start": event_data['start'][:10], # 날짜만 잘라서 저장
+                        "start": event_data['start'][:19], # 시간 정보 포함하여 저장
                         "is_completed": False
                     })
                     save_profile()

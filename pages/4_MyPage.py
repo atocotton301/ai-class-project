@@ -172,6 +172,9 @@ def delete_account_dialog(profile):
         if os.path.exists(profile_path):
             os.remove(profile_path)
             
+        if os.path.exists("data/active_session.json"):
+            os.remove("data/active_session.json")
+            
         st.session_state.clear()
         st.rerun()
 

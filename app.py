@@ -49,6 +49,20 @@ if 'user_profile' not in st.session_state:
 if 'auth_mode' not in st.session_state:
     st.session_state.auth_mode = 'landing' # 초기 화면은 로고와 버튼만 보이게 설정
 
+# --- 🚀 새로고침 시 로그아웃 방지 (자동 로그인) ---
+if not st.session_state.is_logged_in and os.path.exists("data/active_session.json"):
+    try:
+        with open("data/active_session.json", "r", encoding="utf-8") as f:
+            sess_data = json.load(f)
+            saved_login_id = sess_data.get("login_id")
+            if saved_login_id and saved_login_id in load_users():
+                st.session_state.login_id = saved_login_id
+                st.session_state.is_logged_in = True
+                st.session_state.user_profile = load_profile_from_file(saved_login_id)
+                st.session_state.app_step = 'main'
+    except Exception:
+        pass
+
 # ==========================================
 # 2. 화면 렌더링 파이프라인 (라우팅 제어)
 # ==========================================
@@ -97,6 +111,11 @@ if st.session_state.app_step == 'login_signup':
                 elif login_id in users_db and users_db[login_id] == login_pw:
                     st.session_state.login_id = login_id
                     st.session_state.is_logged_in = True
+                    
+                    # 로그인 성공 시 로컬 세션 파일 생성 (새로고침 방지용)
+                    with open("data/active_session.json", "w", encoding="utf-8") as f:
+                        json.dump({"login_id": login_id}, f)
+                    
                     saved_profile = load_profile_from_file(login_id)
                     if saved_profile:
                         st.session_state.user_profile = saved_profile
@@ -303,6 +322,9 @@ elif st.session_state.app_step == 'main':
         st.write(f"입력된 정규 수업 개수: **{len(st.session_state.user_profile.get('timetable', []))}개**")
 
     if st.button("안전한 로그아웃 🔓", use_container_width=True):
+        if os.path.exists("data/active_session.json"):
+            os.remove("data/active_session.json")
+            
         st.session_state.app_step = 'login_signup'
         st.session_state.is_logged_in = False
         st.session_state.user_profile = {}

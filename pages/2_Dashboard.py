@@ -3,30 +3,33 @@ import json
 import os
 from datetime import datetime, timedelta, time
 
-# 세션 상태 초기화: 커스텀(분할) 일정 보관함 생성
-if 'custom_schedules' not in st.session_state:
-    st.session_state.custom_schedules = []
-
 # =========================================================
-# 📌 팝업 모듈: 장기 비교과 다중 요일 일괄 지정 및 개별 관리
+# 📌 팝업 모듈: 시간표 배정 및 상시 수강 관리
 # =========================================================
-@st.dialog("⚙️ 상세 일정 관리")
+@st.dialog("⚙️ 시간표 배정 및 관리")
 def manage_custom_slots_popup(item_index):
-    """
-    메인 UI의 복잡도를 낮추기 위해, 부모 아이템(비교과) 하나에 종속된 
-    여러 개의 하위 일정(조각)들을 팝업 내부에서 일괄 생성 및 삭제하도록 캡슐화함.
-    """
     item = st.session_state.my_schedule[item_index]
     
+    st.markdown(f"### ✨ {item['title']}")
+    
+    # 1. 상시 수강 옵션
+    is_flex = st.toggle("☁️ 상시 수강 / 온라인 프로그램으로 분리 (달력 위에 따로 표시)", value=item.get('is_flexible_display', False))
+    if is_flex != item.get('is_flexible_display', False):
+        item['is_flexible_display'] = is_flex
+        save_profile()
+        st.rerun()
+        
+    if is_flex:
+        st.success("이 프로그램은 시간표 상단의 '상시 수강' 구역에 따로 띄워집니다.")
+        return # Skip slot assignment
+        
+    # 2. 개별 일정 할당 로직
     if 'custom_slots' not in item:
         item['custom_slots'] = []
         
-    st.markdown(f"### ✨ {item['title']}")
-    st.caption("담당자와 협의한 요일과 시간을 선택하여 한 번에 추가하세요.")
-    
     with st.container(border=True):
         st.write("#### ➕ 일정 일괄 추가")
-        selected_days = st.multiselect("📅 반복할 요일 선택", ["월", "화", "수", "목", "금"], default=[], placeholder="선택된 요일 없음 (클릭하여 추가)")
+        selected_days = st.multiselect("📅 반복할 요일 선택", ["월", "화", "수", "목", "금"], default=[])
         
         col1, col2, col3 = st.columns([1, 1, 1])
         hour_opts = [str(h).zfill(2) for h in range(9, 23)]
@@ -39,7 +42,7 @@ def manage_custom_slots_popup(item_index):
         with col3:
             new_dur = st.number_input("⏳ 진행(시간)", min_value=1, max_value=10, value=2)
             
-        if st.button("선택한 요일 일괄 추가하기", type="primary", use_container_width=True):
+        if st.button("선택한 요일 시간표에 담기", type="primary", use_container_width=True):
             if not selected_days:
                 st.error("최소 하나의 요일을 선택해 주세요!")
             else:
@@ -57,10 +60,11 @@ def manage_custom_slots_popup(item_index):
                         "duration": new_dur,
                         "is_custom": True
                     })
+                save_profile()
                 st.success("🎉 일괄 등록이 완료되었습니다!")
                 st.rerun()
 
-    st.markdown("#### 📋 등록된 세부 일정 목록")
+    st.markdown("#### 📋 시간표에 등록된 세부 일정")
     if not item['custom_slots']:
         st.info("아직 배정된 일정이 없습니다. 위에서 일정을 추가해 주세요.")
     else:
@@ -70,10 +74,11 @@ def manage_custom_slots_popup(item_index):
             
             c1, c2 = st.columns([8, 2])
             with c1:
-                st.write(f"🔹 **{dt.date()} ({day_str})** {dt.strftime('%H:%M')} ~ ({slot['duration']}시간)")
+                st.write(f"🔹 **({day_str})** {dt.strftime('%H:%M')} ~ ({slot['duration']}시간)")
             with c2:
                 if st.button("❌", key=f"del_slot_{item_index}_{idx}"):
                     item['custom_slots'].pop(idx)
+                    save_profile()
                     st.rerun()
 
 # =========================================================
@@ -220,11 +225,29 @@ if my_schedule:
                 st.caption(f"⏱️ 총 {ex.get('duration', 0)}시간 | 🏆 {ex.get('points', 0)}pt {status_text}")
                 
             with c_action1:
-                if is_flexible:
-                    if st.button("⚙️ 일정 관리", key=f"mng_{i}", use_container_width=True):
+                try:
+                    dt = datetime.fromisoformat(ex.get('start', ''))
+                    has_time = len(ex.get('start', '')) > 10 and (dt.hour != 0 or dt.minute != 0)
+                except Exception:
+                    has_time = False
+                    
+                is_time_independent = not has_time or float(ex.get('duration', 0)) >= 10
+                
+                if is_time_independent:
+                    if st.button("⚙️ 시간표 배정", key=f"mng_{i}", use_container_width=True):
                         manage_custom_slots_popup(i)
                 else:
-                    st.markdown("<div style='text-align: center; color: #2E7D32; font-size: 0.9em; padding-top: 10px;'>✅ 시간표 고정됨</div>", unsafe_allow_html=True)
+                    in_timetable = ex.get('is_in_timetable', False)
+                    if not in_timetable:
+                        if st.button("➕ 시간표 담기", key=f"tt_add_{i}", use_container_width=True):
+                            ex['is_in_timetable'] = True
+                            save_profile()
+                            st.rerun()
+                    else:
+                        if st.button("➖ 시간표 빼기", key=f"tt_del_{i}", use_container_width=True):
+                            ex['is_in_timetable'] = False
+                            save_profile()
+                            st.rerun()
             
             with c_action2:
                 if not ex.get('is_completed', False):
@@ -248,13 +271,33 @@ st.write("")
 # 4. 데이터 취합 및 스마트 충돌 감지
 # =========================================================
 all_display_slots = []
+flexible_display_slots = []
+
 for ex in my_schedule:
-    if float(ex.get('duration', 0)) < 10:
-        all_display_slots.append(ex)
+    try:
+        dt = datetime.fromisoformat(ex.get('start', ''))
+        has_time = len(ex.get('start', '')) > 10 and (dt.hour != 0 or dt.minute != 0)
+    except Exception:
+        has_time = False
+
+    is_time_independent = not has_time or float(ex.get('duration', 0)) >= 10
+
+    if is_time_independent:
+        if ex.get('is_flexible_display', False):
+            flexible_display_slots.append(ex)
+        else:
+            all_display_slots.extend(ex.get('custom_slots', []))
     else:
-        all_display_slots.extend(ex.get('custom_slots', []))
+        if ex.get('is_in_timetable', False):
+            all_display_slots.append(ex)
 
 st.markdown("### ⏰ 정규 수업 & 융합 시간표")
+
+if flexible_display_slots:
+    st.markdown("#### ☁️ 상시 수강 / 온라인 프로그램 (시간표 무관)")
+    for flex in flexible_display_slots:
+        st.info(f"✨ **{flex['title']}** | ⏱️ 총 {flex.get('duration', 0)}시간 | 🏆 {flex.get('points', 0)}pt")
+    st.markdown("---")
 
 show_extra = st.toggle("✨ 시간표 내 비교과 겹쳐 보기", value=True)
 
