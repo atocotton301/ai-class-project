@@ -132,8 +132,8 @@ if not profile:
     st.warning("⚠️ 메인 화면에서 온보딩을 먼저 완료해 주세요.")
     st.stop()
 
-if 'my_schedule' not in st.session_state:
-    st.session_state.my_schedule = profile.get('my_schedule', [])
+# 파일에서 읽은 최신 데이터를 세션 스테이트에 항상 동기화하여 실시간 반영 보장
+st.session_state.my_schedule = profile.get('my_schedule', [])
 my_schedule = st.session_state.my_schedule
 current_timetable = profile.get("timetable", [])
 
@@ -144,6 +144,18 @@ def save_profile():
     os.makedirs("data", exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(profile, f, ensure_ascii=False, indent=4)
+
+def cb_toggle_timetable(idx, status):
+    st.session_state.my_schedule[idx]['is_in_timetable'] = status
+    save_profile()
+
+def cb_toggle_completion(idx):
+    st.session_state.my_schedule[idx]['is_completed'] = True
+    save_profile()
+
+def cb_remove_schedule(idx):
+    st.session_state.my_schedule.pop(idx)
+    save_profile()
 
 # =========================================================
 # 🔔 1. 스마트 푸시 알림 시스템 (백그라운드 처리 및 Toast 팝업)
@@ -234,34 +246,22 @@ if my_schedule:
                 is_time_independent = not has_time or float(ex.get('duration', 0)) >= 10
                 
                 if is_time_independent:
-                    if st.button("⚙️ 시간표 배정", key=f"mng_{i}", use_container_width=True):
+                    if st.button("⚙️ 시간표 배정", key=f"mng_{ex['title']}", use_container_width=True):
                         manage_custom_slots_popup(i)
                 else:
                     in_timetable = ex.get('is_in_timetable', False)
                     if not in_timetable:
-                        if st.button("➕ 시간표 담기", key=f"tt_add_{i}", use_container_width=True):
-                            ex['is_in_timetable'] = True
-                            save_profile()
-                            st.rerun()
+                        st.button("➕ 시간표 담기", key=f"tt_add_{ex['title']}", use_container_width=True, on_click=cb_toggle_timetable, args=(i, True))
                     else:
-                        if st.button("➖ 시간표 빼기", key=f"tt_del_{i}", use_container_width=True):
-                            ex['is_in_timetable'] = False
-                            save_profile()
-                            st.rerun()
+                        st.button("➖ 시간표 빼기", key=f"tt_del_{ex['title']}", use_container_width=True, on_click=cb_toggle_timetable, args=(i, False))
             
             with c_action2:
                 if not ex.get('is_completed', False):
-                    if st.button("✅ 취득완료", key=f"comp_{i}", use_container_width=True):
-                        ex['is_completed'] = True
-                        save_profile()
-                        st.rerun()
+                    st.button("✅ 취득완료", key=f"comp_{ex['title']}", use_container_width=True, on_click=cb_toggle_completion, args=(i,))
                 else:
                     st.markdown("<div style='text-align: center; color: #1565C0; font-size: 0.9em; padding-top: 10px; font-weight: bold;'>🎉 취득 완료됨</div>", unsafe_allow_html=True)
                     
-                if st.button("❌ 빼기", key=f"del_{i}", use_container_width=True):
-                    st.session_state.my_schedule.pop(i)
-                    save_profile()
-                    st.rerun()
+                st.button("❌ 빼기", key=f"del_{ex['title']}", use_container_width=True, on_click=cb_remove_schedule, args=(i,))
 else:
     st.info("보관함이 비어 있습니다. 캘린더에서 관심 있는 프로그램을 즐겨찾기 해보세요!")
 
